@@ -53,8 +53,10 @@ const onNotifyUser = (_info: IUpdateInfo) => {
 };
 
 if (acquiredLock) {
-  // start auto update logic
-  updateElectronApp({ onNotifyUser });
+  // Nota: comprobación de actualizaciones vía GitHub Releases desactivada.
+  // No la necesitamos para distribución privada, y evita que el arranque
+  // dependa de que el repositorio del fork tenga releases publicadas.
+  // updateElectronApp({ onNotifyUser });
 
   // create and configure the app when electron is ready
   app.on("ready", () => {

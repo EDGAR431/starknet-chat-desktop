@@ -1,6 +1,25 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-let config: DesktopConfig;
+// valor por defecto seguro mientras llega el IPC "config" desde el proceso
+// principal (evita que el cliente web reciba `undefined` si consulta la
+// config antes de que el evento haya llegado — race condition observado
+// contra instancias autoalojadas con carga más rápida que la oficial)
+let config: DesktopConfig = {
+  firstLaunch: true,
+  customFrame: true,
+  minimiseToTray: true,
+  startMinimisedToTray: false,
+  spellchecker: true,
+  hardwareAcceleration: true,
+  discordRpc: true,
+  windowState: {
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    isMaximised: false,
+  },
+};
 
 ipcRenderer.on("config", (_, data) => (config = data));
 

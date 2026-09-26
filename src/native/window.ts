@@ -158,7 +158,10 @@ export function createMainWindow() {
     }
   });
 
-  // send the config
+  // send the config as early as possible (dom-ready fires before
+  // did-finish-load) to minimise the race window with the renderer's
+  // startup script, plus again once fully loaded as a safety net
+  mainWindow.webContents.on("dom-ready", () => config.sync());
   mainWindow.webContents.on("did-finish-load", () => config.sync());
 
   // configure spellchecker context menu
