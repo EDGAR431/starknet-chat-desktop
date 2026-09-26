@@ -54,7 +54,7 @@ export function createMainWindow() {
     titleBarStyle: isMacOS ? "hidden" : "default",
     trafficLightPosition: isMacOS ? { x: 8, y: 8 } : undefined,
     icon: windowIcon,
-    show: !startHidden,
+    show: false,
     webPreferences: {
       // relative to `.vite/build`
       preload: join(__dirname, "preload.js"),
@@ -62,6 +62,16 @@ export function createMainWindow() {
       nodeIntegration: false,
       spellcheck: true,
     },
+  });
+
+  // show and force to foreground once content is actually ready to paint,
+  // instead of relying solely on the `show` constructor flag (unreliable
+  // on Windows for freshly-launched/unsigned processes)
+  mainWindow.once("ready-to-show", () => {
+    if (!startHidden) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
   });
 
   // hide the options
