@@ -1,11 +1,11 @@
 [Desktop Entry]
-Name=Stoat
+Name=StarknetChat
 Comment=Open source, user-first chat platform
-Exec=stoat-desktop
+Exec=starknetchat-desktop
 Terminal=false
 Type=Application
-Icon=chat.stoat.StoatDesktop
+Icon=tech.starknetchat.StarknetChat
 Categories=Network;InstantMessaging
-StartupWMClass=stoat-desktop
+StartupWMClass=starknetchat-desktop
 X-Desktop-File-Install-Version=0.26
-X-Flatpak=chat.stoat.StoatDesktop
+X-Flatpak=tech.starknetchat.StarknetChat

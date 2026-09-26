@@ -16,14 +16,14 @@ export async function initDiscordRpc() {
 
     rpc.on("ready", () =>
       rpc.setActivity({
-        state: "stoat.chat",
+        state: "starknet-chat.tech",
         details: "Chatting with others",
         largeImageKey: "qr",
-        largeImageText: "Join Stoat!",
+        largeImageText: "Join StarknetChat!",
         buttons: [
           {
-            label: "Join Stoat",
-            url: "https://stoat.chat/",
+            label: "Join StarknetChat",
+            url: "https://starknet-chat.tech/",
           },
         ],
       }),

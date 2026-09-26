@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop">
-  <id>chat.stoat.StoatDesktop</id>
-  <launchable type="desktop-id">chat.stoat.StoatDesktop.desktop</launchable>
+  <id>tech.starknetchat.StarknetChat</id>
+  <launchable type="desktop-id">tech.starknetchat.StarknetChat.desktop</launchable>
   <name>Stoat</name>
-  <developer id="chat.stoat">
+  <developer id="tech.starknetchat">
     <name>Revolt Platforms Ltd</name>
   </developer>
   <summary>Open source, user-first chat platform</summary>

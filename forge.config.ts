@@ -28,8 +28,6 @@ const makers: ForgeConfig["makers"] = [
   new MakerSquirrel({
     name: STRINGS.name,
     authors: STRINGS.author,
-    // todo: hoist this
-    iconUrl: `https://stoat.chat/app/assets/icon-DUSNE-Pb.ico`,
     // todo: loadingGif
     setupIcon: `${ASSET_DIR}/icon.ico`,
     description: STRINGS.description,
@@ -40,7 +38,7 @@ const makers: ForgeConfig["makers"] = [
   new MakerZIP({}),
   new MakerFlatpak({
     options: {
-      id: "chat.stoat.StoatDesktop",
+      id: "tech.starknetchat.StarknetChat",
       description: STRINGS.description,
       productName: STRINGS.name,
       productDescription: STRINGS.description,
@@ -172,8 +170,8 @@ const config: ForgeConfig = {
   publishers: [
     new PublisherGithub({
       repository: {
-        owner: "stoatchat",
-        name: "for-desktop",
+        owner: "EdgarVazquez",
+        name: "starknet-chat-desktop",
       },
     }),
   ],

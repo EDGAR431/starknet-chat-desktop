@@ -4,7 +4,7 @@
   "description": "Cliente de escritorio para nuestra instancia autoalojada de Stoat.",
   "version": "1.5.4",
   "main": ".vite/build/main.js",
-  "repository": "stoatchat/desktop",
+  "repository": "EdgarVazquez/starknet-chat-desktop",
   "scripts": {
     "start": "electron-forge start -- --no-sandbox",
     "package": "electron-forge package",
