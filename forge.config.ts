@@ -14,9 +14,9 @@ import path from "node:path";
 
 const STRINGS = {
   author: "Revolt Platforms LTD",
-  name: "Stoat",
-  execName: "stoat-desktop",
-  description: "Open source user-first chat platform.",
+  name: "StarknetChat",
+  execName: "starknetchat-desktop",
+  description: "Cliente de escritorio para nuestra instancia autoalojada de Stoat.",
 };
 
 const ASSET_DIR = "assets/desktop";
