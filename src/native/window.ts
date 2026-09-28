@@ -162,7 +162,15 @@ export function createMainWindow() {
   // did-finish-load) to minimise the race window with the renderer's
   // startup script, plus again once fully loaded as a safety net
   mainWindow.webContents.on("dom-ready", () => config.sync());
-  mainWindow.webContents.on("did-finish-load", () => config.sync());
+  mainWindow.webContents.on("did-finish-load", () => {
+    config.sync();
+    // Tras una recarga la página puede quedar sin foco de teclado/mando, y
+    // Chromium solo expone los mandos a la página con foco.
+    if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+      mainWindow.webContents.focus();
+    }
+  });
+  mainWindow.on("focus", () => mainWindow.webContents.focus());
 
   // configure spellchecker context menu
   mainWindow.webContents.on("context-menu", (_, params) => {
@@ -272,6 +280,15 @@ export function createMainWindow() {
     mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(),
   );
   ipcMain.on("close", () => mainWindow.close());
+
+  // Reinicio completo de la aplicación (lo usa el actualizador automático,
+  // como hace Discord): un proceso nuevo evita estados rotos tras recargar.
+  ipcMain.on("relaunch", () => {
+    shouldQuit = true;
+    app.releaseSingleInstanceLock();
+    app.relaunch();
+    app.exit(0);
+  });
 
   // mainWindow.webContents.openDevTools();
 
