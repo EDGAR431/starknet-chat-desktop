@@ -1,3 +1,4 @@
+import { release } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -25,6 +26,18 @@ export const BUILD_URL = new URL(
     ? app.commandLine.getSwitchValue("force-server")
     : /*MAIN_WINDOW_VITE_DEV_SERVER_URL ??*/ "https://starknet-chat.tech/app",
 );
+
+/**
+ * Audio mode for screen-share capture. "loopbackWithoutChrome" removes this
+ * app's own output (call voices, soundboard…) from the captured system audio
+ * so viewers don't hear themselves / the sharer through the stream. Needs
+ * Windows 11 (build 22000+); older systems fall back to plain loopback.
+ */
+const LOOPBACK_MODE: "loopback" | "loopbackWithoutChrome" =
+  process.platform === "win32" &&
+  parseInt(release().split(".")[2] ?? "0", 10) >= 22000
+    ? "loopbackWithoutChrome"
+    : "loopback";
 
 // internal window state
 let shouldQuit = false;
@@ -226,7 +239,7 @@ export function createMainWindow() {
             request.audioRequested
               ? callback({
                   video: sources[0],
-                  audio: "loopback",
+                  audio: LOOPBACK_MODE,
                 })
               : callback({
                   video: sources[0],
@@ -242,7 +255,7 @@ export function createMainWindow() {
                 audio
                   ? callback({
                       video: sources[idx],
-                      audio: "loopback",
+                      audio: LOOPBACK_MODE,
                     })
                   : callback({
                       video: sources[idx],
