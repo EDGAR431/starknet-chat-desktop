@@ -297,9 +297,15 @@ export function createMainWindow() {
   // Reinicio completo de la aplicación (lo usa el actualizador automático,
   // como hace Discord): un proceso nuevo evita estados rotos tras recargar.
   ipcMain.on("relaunch", () => {
+    // If the window was closed to the tray (hidden), restart hidden too:
+    // an automatic update must not pop the app back up in the foreground.
+    const wasHidden = !mainWindow.isVisible() || mainWindow.isMinimized();
+    const args = process.argv.slice(1).filter((a) => a !== "--hidden");
+    if (wasHidden) args.push("--hidden");
+
     shouldQuit = true;
     app.releaseSingleInstanceLock();
-    app.relaunch();
+    app.relaunch({ args });
     app.exit(0);
   });
 
