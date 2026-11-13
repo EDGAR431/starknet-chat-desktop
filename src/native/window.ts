@@ -246,10 +246,13 @@ export function createMainWindow() {
                 });
             return;
           }
+          // Quita un listener anterior que haya quedado sin responder
+          // (por ejemplo si el selector nunca llegó a abrirse).
+          ipcMain.removeAllListeners("screenPickerCallback");
           ipcMain.once(
             "screenPickerCallback",
             (_, idx: number, audio: boolean) => {
-              if (idx < 0 || idx > sources.length) {
+              if (!Number.isInteger(idx) || idx < 0 || idx >= sources.length) {
                 callback({});
               } else {
                 audio

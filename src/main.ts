@@ -110,7 +110,13 @@ if (acquiredLock) {
   app.on("web-contents-created", (_, contents) => {
     // prevent navigation out of build URL origin
     contents.on("will-navigate", (event, navigationUrl) => {
-      if (new URL(navigationUrl).origin !== BUILD_URL.origin) {
+      let origin: string | undefined;
+      try {
+        origin = new URL(navigationUrl).origin;
+      } catch {
+        /* URL malformada: se bloquea */
+      }
+      if (origin !== BUILD_URL.origin) {
         event.preventDefault();
       }
     });

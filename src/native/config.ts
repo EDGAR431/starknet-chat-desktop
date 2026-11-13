@@ -211,9 +211,25 @@ class Config {
 
 export const config = new Config();
 
+// Claves que la web puede modificar (todas booleanas). windowState lo gestiona
+// solo el proceso principal.
+const KNOWN_CONFIG_KEYS: Record<string, string> = {
+  firstLaunch: "boolean",
+  customFrame: "boolean",
+  minimiseToTray: "boolean",
+  startMinimisedToTray: "boolean",
+  spellchecker: "boolean",
+  hardwareAcceleration: "boolean",
+  discordRpc: "boolean",
+};
+
 ipcMain.on("config", (_, newConfig: Partial<DesktopConfig>) => {
   console.info("Received new configuration", newConfig);
-  Object.entries(newConfig).forEach(
-    ([key, value]) => (config[key as keyof DesktopConfig] = value as never),
-  );
+  if (!newConfig || typeof newConfig !== "object") return;
+  Object.entries(newConfig).forEach(([key, value]) => {
+    // Solo claves conocidas con el tipo esperado; el resto se ignora.
+    if (!(key in KNOWN_CONFIG_KEYS)) return;
+    if (typeof value !== KNOWN_CONFIG_KEYS[key]) return;
+    config[key as keyof DesktopConfig] = value as never;
+  });
 });
