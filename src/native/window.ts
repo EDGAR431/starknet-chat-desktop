@@ -39,6 +39,14 @@ const LOOPBACK_MODE: "loopback" | "loopbackWithoutChrome" =
     ? "loopbackWithoutChrome"
     : "loopback";
 
+// La web pregunta esto para avisar al usuario: sin exclusión de la propia app
+// (Windows 10, Linux, macOS), el audio compartido incluye las voces de la
+// llamada y los espectadores se oyen a sí mismos (audio duplicado/eco).
+ipcMain.handle(
+  "getLoopbackExcludesApp",
+  () => LOOPBACK_MODE === "loopbackWithoutChrome",
+);
+
 // internal window state
 let shouldQuit = false;
 

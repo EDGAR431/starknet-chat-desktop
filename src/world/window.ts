@@ -35,4 +35,6 @@ contextBridge.exposeInMainWorld("native", {
     ipcRenderer.send("screenPickerCallback", idx, audio),
 
   isWayland: () => ipcRenderer.invoke("getIsWayland"),
+  loopbackExcludesApp: (): Promise<boolean> =>
+    ipcRenderer.invoke("getLoopbackExcludesApp"),
 });
