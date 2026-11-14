@@ -72,4 +72,4 @@ if ($remoteSize -ne $localSize) { throw "El instalador publicado ($remoteSize by
 Write-Host ""
 Write-Host "PUBLICADO: version $version" -ForegroundColor Green
 Write-Host "  $PublicUrl/starknetchat-desktop-setup.exe"
-Write-Host "Los clientes instalados la recibiran en un maximo de 4 horas."
+Write-Host "Los clientes instalados la recibiran en un maximo de 15 minutos."

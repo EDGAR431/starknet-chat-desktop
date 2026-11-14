@@ -17,6 +17,12 @@ contextBridge.exposeInMainWorld("native", {
     ipcRenderer.removeAllListeners("maximised");
     ipcRenderer.on("maximised", (_, value) => cb(!!value));
   },
+  checkForUpdates: (): Promise<string> => ipcRenderer.invoke("checkForUpdates"),
+  installUpdate: () => ipcRenderer.send("installUpdate"),
+  onUpdateReady: (cb: () => void) => {
+    ipcRenderer.removeAllListeners("updateReady");
+    ipcRenderer.on("updateReady", () => cb());
+  },
   dragStart: () => ipcRenderer.send("dragStart"),
   dragEnd: () => ipcRenderer.send("dragEnd"),
   relaunch: () => ipcRenderer.send("relaunch"),

@@ -1,7 +1,14 @@
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-import { Notification, app, autoUpdater, shell } from "electron";
+import {
+  BrowserWindow,
+  Notification,
+  app,
+  autoUpdater,
+  ipcMain,
+  shell,
+} from "electron";
 
 /**
  * Actualizador propio (estilo Discord) para la version instalada FUERA de la
@@ -18,8 +25,9 @@ export const UPDATE_FEED_URL =
   process.env.STARKNET_UPDATE_URL ??
   "https://starknet-chat.tech/desktop-updates/win32/x64";
 
-const CHECK_EVERY_MS = 4 * 60 * 60 * 1000; // 4 horas
-const FIRST_CHECK_DELAY_MS = 30 * 1000; // no frenar el arranque
+const CHECK_EVERY_MS = 15 * 60 * 1000; // 15 minutos (el fichero RELEASES pesa ~80 bytes)
+const FIRST_CHECK_DELAY_MS = 10 * 1000; // no frenar el arranque
+const MANUAL_CHECK_TIMEOUT_MS = 30 * 1000;
 
 /** true si esta instalacion puede autoactualizarse */
 export function canSelfUpdate() {
@@ -35,8 +43,72 @@ export function canSelfUpdate() {
 
 let started = false;
 let downloaded = false;
+let checking = false;
+let downloading = false;
+
+export type UpdateStatus =
+  | "unsupported" // version de la Store u otra instalacion sin Squirrel
+  | "up-to-date"
+  | "downloading"
+  | "ready"
+  | "error";
+
+/**
+ * Busca actualizaciones ahora (boton "Buscar actualizaciones").
+ * Devuelve en cuanto se sabe si hay algo; si hay version nueva sigue
+ * descargando en segundo plano y avisa cuando esta lista.
+ */
+export function checkNow(): Promise<UpdateStatus> {
+  if (!canSelfUpdate() || !started) return Promise.resolve("unsupported");
+  if (downloaded) return Promise.resolve("ready");
+  if (downloading || checking) return Promise.resolve("downloading");
+
+  return new Promise<UpdateStatus>((resolve) => {
+    checking = true;
+    let done = false;
+    const finish = (status: UpdateStatus) => {
+      if (done) return;
+      done = true;
+      checking = false;
+      clearTimeout(timer);
+      autoUpdater.removeListener("update-not-available", onNone);
+      autoUpdater.removeListener("update-available", onAvailable);
+      autoUpdater.removeListener("update-downloaded", onReady);
+      autoUpdater.removeListener("error", onError);
+      resolve(status);
+    };
+    const onNone = () => finish("up-to-date");
+    const onAvailable = () => {
+      // no esperamos a que termine la descarga: seguira en segundo plano
+      checking = false;
+      finish("downloading");
+    };
+    const onReady = () => finish("ready");
+    const onError = () => finish("error");
+    const timer = setTimeout(() => finish("error"), MANUAL_CHECK_TIMEOUT_MS);
+
+    autoUpdater.once("update-not-available", onNone);
+    autoUpdater.once("update-available", onAvailable);
+    autoUpdater.once("update-downloaded", onReady);
+    autoUpdater.once("error", onError);
+    try {
+      autoUpdater.checkForUpdates();
+    } catch {
+      finish("error");
+    }
+  });
+}
+
+function registerIpc() {
+  ipcMain.handle("checkForUpdates", () => checkNow());
+  ipcMain.on("installUpdate", () => {
+    if (downloaded) autoUpdater.quitAndInstall();
+  });
+}
 
 export function initUpdater() {
+  // los mensajes IPC existen siempre; en la version de la Store responden "unsupported"
+  registerIpc();
   if (started || !canSelfUpdate()) return;
   started = true;
 
@@ -48,17 +120,20 @@ export function initUpdater() {
   }
 
   autoUpdater.on("error", (err) => {
-    // sin red, servidor caido, etc: silencioso, se reintenta en 4 h
+    // sin red, servidor caido, etc: silencioso, se reintenta en 15 min
+    downloading = false;
     console.warn("[updater] error:", err?.message ?? err);
   });
 
   autoUpdater.on("update-available", () => {
+    downloading = true;
     console.log("[updater] descargando actualizacion...");
   });
 
   autoUpdater.on("update-downloaded", (_event, _notes, releaseName) => {
     if (downloaded) return;
     downloaded = true;
+    downloading = false;
     console.log("[updater] lista:", releaseName);
 
     // Si no se pulsa, Squirrel la aplica igualmente en el siguiente arranque.
@@ -69,10 +144,15 @@ export function initUpdater() {
     });
     notification.on("click", () => autoUpdater.quitAndInstall());
     notification.show();
+
+    // avisar a la web (por si el usuario esta en Ajustes > Escritorio)
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send("updateReady", releaseName ?? "");
+    }
   });
 
   const check = () => {
-    if (downloaded) return;
+    if (downloaded || downloading || checking) return;
     try {
       autoUpdater.checkForUpdates();
     } catch (err) {
@@ -94,7 +174,7 @@ const STORE_LATEST_URL =
   process.env.STARKNET_STORE_LATEST_URL ??
   "https://starknet-chat.tech/desktop-updates/store-latest.json";
 const STORE_PRODUCT_URL = "ms-windows-store://pdp/?productid=9NMQ1VS1JQKN";
-const STORE_CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
+const STORE_CHECK_EVERY_MS = 60 * 60 * 1000; // 1 hora
 
 function isNewer(remote: string, local: string) {
   const a = remote.split(".").map((n) => parseInt(n, 10) || 0);

@@ -34,7 +34,7 @@ ssh-keygen -t ed25519
 type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh root@45.133.178.187 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
 ```
 
-Los clientes instalados la detectan en <= 4 h, la descargan y la instalan al
+Los clientes instalados la detectan en <= 15 min, la descargan y la instalan al
 reiniciar (o al pulsar la notificacion).
 
 ## Servidor
@@ -53,7 +53,7 @@ fichero `RELEASES` y los `.nupkg`). Variable para pruebas:
 
 ## Aviso para la version de la Store
 
-La version de la Store consulta cada 6 h
+La version de la Store consulta cada hora
 `https://starknet-chat.tech/desktop-updates/store-latest.json`:
 
 ```json
@@ -63,3 +63,9 @@ La version de la Store consulta cada 6 h
 Si esa version es mayor que la instalada, muestra una notificacion con acceso
 a la ficha de la Store. **Publicar ese fichero solo cuando la Store ya haya
 publicado la version** (en el VPS: `~/stoat/desktop-updates/store-latest.json`).
+
+## Boton "Buscar actualizaciones"
+
+En la app: Ajustes > Escritorio > "Buscar actualizaciones". Comprueba al
+instante; si hay version nueva la descarga y ofrece reiniciar. En la version de
+la Store el boton indica que la Store gestiona las actualizaciones.
