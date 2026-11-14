@@ -28,6 +28,10 @@ contextBridge.exposeInMainWorld("native", {
       if (action === "mute" || action === "deafen") cb(action);
     });
   },
+  googleSignIn: (
+    clientId: string,
+  ): Promise<{ idToken?: string; error?: string }> =>
+    ipcRenderer.invoke("googleSignIn", clientId),
   checkForUpdates: (): Promise<string> => ipcRenderer.invoke("checkForUpdates"),
   installUpdate: () => ipcRenderer.send("installUpdate"),
   onUpdateReady: (cb: () => void) => {
