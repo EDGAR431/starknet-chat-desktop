@@ -18,12 +18,24 @@ una version nueva del escritorio cuando cambia la capa nativa
 ## Publicar una version (PC Windows)
 
 1. Subir `version` en `package.json`.
-2. `npm.cmd install` y `npm.cmd run make`
-   -> `out\make\squirrel.windows\x64\` contiene:
-   `RELEASES`, `StarknetChat-X.Y.Z-full.nupkg`, `starknetchat-desktop-setup.exe`
-3. Subir esa carpeta al VPS (ver `scripts/publish-update.ps1`).
-4. Los clientes instalados la detectan en <= 4 h, la descargan y la
-   instalan al reiniciar (o al pulsar la notificacion).
+2. `npm.cmd install` (solo la primera vez o si cambian dependencias).
+3. `npm.cmd run release`
+
+Eso compila, sube a `/root/stoat/desktop-updates/win32/x64/` (primero el paquete
+y el instalador, `RELEASES` el ultimo) y comprueba desde la URL publica que
+`RELEASES` y el instalador coinciden con los locales. Si algo falla, se detiene
+con un mensaje. `-SkipBuild` sube lo que ya esta compilado:
+`npm.cmd run release -- -SkipBuild`.
+
+Para que no pida la contrasena 3 veces, configurar una clave SSH (una sola vez):
+
+```powershell
+ssh-keygen -t ed25519
+type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh root@45.133.178.187 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
+```
+
+Los clientes instalados la detectan en <= 4 h, la descargan y la instalan al
+reiniciar (o al pulsar la notificacion).
 
 ## Servidor
 

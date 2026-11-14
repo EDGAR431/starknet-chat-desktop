@@ -10,6 +10,7 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
+    "release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1",
     "lint": "eslint --ext .ts,.tsx .",
     "lint:fix": "eslint --ext --fix .ts,.tsx .",
     "fmt": "prettier --check 'src/**/*.{ts,tsx,json}'",
