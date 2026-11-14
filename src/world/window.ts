@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld("native", {
   minimise: () => ipcRenderer.send("minimise"),
   maximise: () => ipcRenderer.send("maximise"),
   close: () => ipcRenderer.send("close"),
+  dragStart: () => ipcRenderer.send("dragStart"),
+  dragEnd: () => ipcRenderer.send("dragEnd"),
   relaunch: () => ipcRenderer.send("relaunch"),
 
   setBadgeCount: (count: number) => ipcRenderer.send("setBadgeCount", count),

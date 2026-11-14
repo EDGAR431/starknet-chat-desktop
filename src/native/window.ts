@@ -9,6 +9,7 @@ import {
   desktopCapturer,
   ipcMain,
   nativeImage,
+  screen,
   session,
 } from "electron";
 
@@ -304,6 +305,32 @@ export function createMainWindow() {
     mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize(),
   );
   ipcMain.on("close", () => mainWindow.close());
+
+  // Arrastre de respaldo de la barra de título personalizada. Si la región
+  // CSS `-webkit-app-region: drag` falla (el sistema se come el clic), la web
+  // llama a estos dos mensajes y movemos la ventana nosotros siguiendo el
+  // cursor. Si la región CSS funciona, estos mensajes nunca llegan.
+  let dragTimer: ReturnType<typeof setInterval> | undefined;
+  const stopDrag = () => {
+    if (dragTimer) clearInterval(dragTimer);
+    dragTimer = undefined;
+  };
+  ipcMain.on("dragStart", () => {
+    stopDrag();
+    if (mainWindow.isMaximized() || mainWindow.isFullScreen()) return;
+    const start = screen.getCursorScreenPoint();
+    const [winX, winY] = mainWindow.getPosition();
+    dragTimer = setInterval(() => {
+      if (mainWindow.isDestroyed()) return stopDrag();
+      const now = screen.getCursorScreenPoint();
+      mainWindow.setPosition(
+        winX + (now.x - start.x),
+        winY + (now.y - start.y),
+      );
+    }, 8);
+  });
+  ipcMain.on("dragEnd", stopDrag);
+  mainWindow.on("closed", stopDrag);
 
   // Reinicio completo de la aplicación (lo usa el actualizador automático,
   // como hace Discord): un proceso nuevo evita estados rotos tras recargar.
