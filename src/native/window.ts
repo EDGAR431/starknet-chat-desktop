@@ -1,4 +1,5 @@
 import { release } from "node:os";
+import { appendFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
@@ -47,6 +48,18 @@ ipcMain.handle(
   "getLoopbackExcludesApp",
   () => LOOPBACK_MODE === "loopbackWithoutChrome",
 );
+
+/** Registro de diagnostico del arrastre (userData/drag-debug.log), por si falla */
+function dragLog(msg: string) {
+  try {
+    appendFileSync(
+      join(app.getPath("userData"), "drag-debug.log"),
+      `${new Date().toISOString()} ${msg}\n`,
+    );
+  } catch {
+    /* ignorar */
+  }
+}
 
 // internal window state
 let shouldQuit = false;
@@ -324,8 +337,11 @@ export function createMainWindow() {
   };
   ipcMain.on("dragStart", () => {
     stopDrag();
-    if (mainWindow.isFullScreen()) return;
     const start = screen.getCursorScreenPoint();
+    dragLog(
+      `dragStart maximized=${mainWindow.isMaximized()} fullscreen=${mainWindow.isFullScreen()} cursor=${start.x},${start.y} bounds=${JSON.stringify(mainWindow.getBounds())}`,
+    );
+    if (mainWindow.isFullScreen()) return;
 
     // Tamano y posicion de partida. Se calculan aqui y se aplican en cada
     // tick con setBounds (tamano fijo): con varios monitores de distinta
@@ -378,10 +394,11 @@ export function createMainWindow() {
       apply(x, y);
     }, 8);
   });
-  ipcMain.on("dragEnd", stopDrag);
+  ipcMain.on("dragEnd", () => {
+    dragLog(`dragEnd bounds=${JSON.stringify(mainWindow.getBounds())}`);
+    stopDrag();
+  });
   mainWindow.on("closed", stopDrag);
-  // seguro: si la ventana pierde el foco a mitad de arrastre, soltar
-  mainWindow.on("blur", stopDrag);
 
   // Reinicio completo de la aplicación (lo usa el actualizador automático,
   // como hace Discord): un proceso nuevo evita estados rotos tras recargar.
