@@ -327,36 +327,61 @@ export function createMainWindow() {
     if (mainWindow.isFullScreen()) return;
     const start = screen.getCursorScreenPoint();
 
-    // Ventana maximizada: como hace Windows, se restaura y se coloca de modo que
-    // el cursor quede en la misma posicion relativa de la barra de titulo.
+    // Tamano y posicion de partida. Se calculan aqui y se aplican en cada
+    // tick con setBounds (tamano fijo): con varios monitores de distinta
+    // escala, setPosition suelta cambia el tamano de la ventana al cruzar.
+    let width: number;
+    let height: number;
+    let originX: number;
+    let originY: number;
+
     if (mainWindow.isMaximized()) {
+      // Ventana maximizada: como hace Windows, se restaura y se coloca de modo
+      // que el cursor quede en la misma posicion relativa de la barra de titulo.
+      const display = screen.getDisplayNearestPoint(start);
+      const area = display.workArea;
       const maxBounds = mainWindow.getBounds();
       const normal = mainWindow.getNormalBounds();
+      width = Math.min(normal.width, area.width);
+      height = Math.min(normal.height, area.height);
       const ratio = Math.min(
         Math.max((start.x - maxBounds.x) / Math.max(maxBounds.width, 1), 0),
         1,
       );
+      originX = Math.round(start.x - ratio * width);
+      // el limite superior es el del monitor donde esta el cursor, no el 0
+      // global (con 2-3 pantallas el 0 puede ser otro monitor)
+      originY = Math.max(start.y - 14, area.y);
       mainWindow.unmaximize();
-      mainWindow.setBounds({
-        x: Math.round(start.x - ratio * normal.width),
-        y: Math.max(start.y - 14, 0),
-        width: normal.width,
-        height: normal.height,
-      });
+    } else {
+      const b = mainWindow.getBounds();
+      width = b.width;
+      height = b.height;
+      originX = b.x;
+      originY = b.y;
     }
 
-    const [winX, winY] = mainWindow.getPosition();
+    const apply = (x: number, y: number) =>
+      mainWindow.setBounds({ x, y, width, height });
+    apply(originX, originY);
+
+    let lastX = originX;
+    let lastY = originY;
     dragTimer = setInterval(() => {
       if (mainWindow.isDestroyed()) return stopDrag();
       const now = screen.getCursorScreenPoint();
-      mainWindow.setPosition(
-        winX + (now.x - start.x),
-        winY + (now.y - start.y),
-      );
+      const x = originX + (now.x - start.x);
+      const y = originY + (now.y - start.y);
+      if (x === lastX && y === lastY) return;
+      lastX = x;
+      lastY = y;
+      apply(x, y);
     }, 8);
   });
   ipcMain.on("dragEnd", stopDrag);
   mainWindow.on("closed", stopDrag);
+  // seguro: si la ventana pierde el foco a mitad de arrastre, soltar
+  mainWindow.on("blur", stopDrag);
 
   // Reinicio completo de la aplicación (lo usa el actualizador automático,
   // como hace Discord): un proceso nuevo evita estados rotos tras recargar.
