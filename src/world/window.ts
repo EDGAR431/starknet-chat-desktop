@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld("native", {
   minimise: () => ipcRenderer.send("minimise"),
   maximise: () => ipcRenderer.send("maximise"),
   close: () => ipcRenderer.send("close"),
+  onMaximisedChange: (cb: (maximised: boolean) => void) => {
+    ipcRenderer.removeAllListeners("maximised");
+    ipcRenderer.on("maximised", (_, value) => cb(!!value));
+  },
   dragStart: () => ipcRenderer.send("dragStart"),
   dragEnd: () => ipcRenderer.send("dragEnd"),
   relaunch: () => ipcRenderer.send("relaunch"),

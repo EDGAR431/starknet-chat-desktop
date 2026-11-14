@@ -150,6 +150,13 @@ export function createMainWindow() {
 
   mainWindow.on("maximize", generateState);
   mainWindow.on("unmaximize", generateState);
+  // avisar a la web para que el icono de maximizar/restaurar siempre sea el correcto
+  mainWindow.on("maximize", () =>
+    mainWindow.webContents.send("maximised", true),
+  );
+  mainWindow.on("unmaximize", () =>
+    mainWindow.webContents.send("maximised", false),
+  );
   mainWindow.on("moved", generateState);
   mainWindow.on("resized", generateState);
 
@@ -317,8 +324,27 @@ export function createMainWindow() {
   };
   ipcMain.on("dragStart", () => {
     stopDrag();
-    if (mainWindow.isMaximized() || mainWindow.isFullScreen()) return;
+    if (mainWindow.isFullScreen()) return;
     const start = screen.getCursorScreenPoint();
+
+    // Ventana maximizada: como hace Windows, se restaura y se coloca de modo que
+    // el cursor quede en la misma posicion relativa de la barra de titulo.
+    if (mainWindow.isMaximized()) {
+      const maxBounds = mainWindow.getBounds();
+      const normal = mainWindow.getNormalBounds();
+      const ratio = Math.min(
+        Math.max((start.x - maxBounds.x) / Math.max(maxBounds.width, 1), 0),
+        1,
+      );
+      mainWindow.unmaximize();
+      mainWindow.setBounds({
+        x: Math.round(start.x - ratio * normal.width),
+        y: Math.max(start.y - 14, 0),
+        width: normal.width,
+        height: normal.height,
+      });
+    }
+
     const [winX, winY] = mainWindow.getPosition();
     dragTimer = setInterval(() => {
       if (mainWindow.isDestroyed()) return stopDrag();
