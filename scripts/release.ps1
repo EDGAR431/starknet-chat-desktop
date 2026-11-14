@@ -17,6 +17,13 @@ function Check($what) { if ($LASTEXITCODE -ne 0) { throw "Fallo: $what" } }
 $version = (Get-Content (Join-Path $root "package.json") -Raw | ConvertFrom-Json).version
 Write-Host "== StarkNetChat escritorio $version ==" -ForegroundColor Cyan
 
+# 0. Dependencias (solo si faltan, p. ej. en una carpeta recien descomprimida)
+if (-not (Test-Path (Join-Path $root "node_modules\.bin\electron-forge.cmd"))) {
+  Write-Host "[0/4] Instalando dependencias (solo esta vez)..."
+  npm.cmd install
+  Check "npm install"
+}
+
 # 1. Compilar
 if (-not $SkipBuild) {
   Write-Host "[1/4] Compilando (puede tardar unos minutos)..."
