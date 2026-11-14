@@ -61,6 +61,21 @@ contextBridge.exposeInMainWorld("native", {
   screenPickerCallback: (idx: number, audio: boolean) =>
     ipcRenderer.send("screenPickerCallback", idx, audio),
 
+  // Audio por aplicación al compartir una ventana (Windows)
+  onAppAudioStart: (cb: () => void) => {
+    ipcRenderer.removeAllListeners("appAudioStart");
+    ipcRenderer.on("appAudioStart", () => cb());
+  },
+  onAppAudioChunk: (cb: (chunk: Uint8Array) => void) => {
+    ipcRenderer.removeAllListeners("appAudioChunk");
+    ipcRenderer.on("appAudioChunk", (_, chunk: Uint8Array) => cb(chunk));
+  },
+  onAppAudioEnded: (cb: (reason: string) => void) => {
+    ipcRenderer.removeAllListeners("appAudioEnded");
+    ipcRenderer.on("appAudioEnded", (_, reason: string) => cb(reason));
+  },
+  stopAppAudio: () => ipcRenderer.send("stopAppAudio"),
+
   isWayland: () => ipcRenderer.invoke("getIsWayland"),
   loopbackExcludesApp: (): Promise<boolean> =>
     ipcRenderer.invoke("getLoopbackExcludesApp"),

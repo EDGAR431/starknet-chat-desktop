@@ -102,6 +102,8 @@ const config: ForgeConfig = {
       process.platform === "darwin"
         ? `${ASSET_DIR}/icon.icon`
         : `${ASSET_DIR}/icon`,
+    // Ayudante nativo de audio por aplicación (Windows)
+    extraResource: ["native/proc-audio/proc-audio.exe"],
     // extraResource: [
     //   // include all the asset files
     //   ...globSync(ASSET_DIR + "/**/*"),

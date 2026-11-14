@@ -16,6 +16,7 @@ import {
 
 import windowIconAsset from "../../assets/desktop/icon.png?asset";
 
+import { appAudioAvailable, startAppAudio, stopAppAudio } from "./appAudio";
 import { config } from "./config";
 import { updateTrayMenu } from "./tray";
 
@@ -46,7 +47,7 @@ const LOOPBACK_MODE: "loopback" | "loopbackWithoutChrome" =
 // llamada y los espectadores se oyen a sí mismos (audio duplicado/eco).
 ipcMain.handle(
   "getLoopbackExcludesApp",
-  () => LOOPBACK_MODE === "loopbackWithoutChrome",
+  () => LOOPBACK_MODE === "loopbackWithoutChrome" || appAudioAvailable(),
 );
 
 /** Registro de diagnostico del arrastre (userData/drag-debug.log), por si falla */
@@ -282,8 +283,22 @@ export function createMainWindow() {
             "screenPickerCallback",
             (_, idx: number, audio: boolean) => {
               if (!Number.isInteger(idx) || idx < 0 || idx >= sources.length) {
+                stopAppAudio();
                 callback({});
+              } else if (
+                audio &&
+                sources[idx].id.startsWith("window:") &&
+                appAudioAvailable()
+              ) {
+                // Audio solo de la ventana compartida (sin voces de la
+                // llamada): lo captura el ayudante nativo y se publica
+                // desde la web; aquí no se pide loopback del sistema.
+                callback({ video: sources[idx] });
+                if (!startAppAudio(sources[idx].id, mainWindow)) {
+                  dragLog("appAudio: no se pudo lanzar el ayudante");
+                }
               } else {
+                stopAppAudio();
                 audio
                   ? callback({
                       video: sources[idx],

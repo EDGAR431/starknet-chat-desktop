@@ -8,6 +8,7 @@ import started from "electron-squirrel-startup";
 import { initAutoLaunch } from "./native/autoLaunch";
 import { config } from "./native/config";
 import { initDiscordRpc } from "./native/discordRpc";
+import { initAppAudio } from "./native/appAudio";
 import { initGoogleAuth } from "./native/googleAuth";
 import { initShortcuts } from "./native/shortcuts";
 import { initTray } from "./native/tray";
@@ -80,6 +81,7 @@ if (acquiredLock) {
     initUpdater();
     initShortcuts();
     initGoogleAuth();
+    initAppAudio();
     initStoreNotifier();
 
     // Windows specific fix for notifications
