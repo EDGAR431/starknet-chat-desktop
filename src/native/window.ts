@@ -336,63 +336,93 @@ export function createMainWindow() {
     dragTimer = undefined;
   };
   ipcMain.on("dragStart", () => {
-    stopDrag();
-    const start = screen.getCursorScreenPoint();
-    dragLog(
-      `dragStart maximized=${mainWindow.isMaximized()} fullscreen=${mainWindow.isFullScreen()} cursor=${start.x},${start.y} bounds=${JSON.stringify(mainWindow.getBounds())}`,
-    );
-    if (mainWindow.isFullScreen()) return;
-
-    // Tamano y posicion de partida. Se calculan aqui y se aplican en cada
-    // tick con setBounds (tamano fijo): con varios monitores de distinta
-    // escala, setPosition suelta cambia el tamano de la ventana al cruzar.
-    let width: number;
-    let height: number;
-    let originX: number;
-    let originY: number;
-
-    if (mainWindow.isMaximized()) {
-      // Ventana maximizada: como hace Windows, se restaura y se coloca de modo
-      // que el cursor quede en la misma posicion relativa de la barra de titulo.
-      const display = screen.getDisplayNearestPoint(start);
-      const area = display.workArea;
-      const maxBounds = mainWindow.getBounds();
-      const normal = mainWindow.getNormalBounds();
-      width = Math.min(normal.width, area.width);
-      height = Math.min(normal.height, area.height);
-      const ratio = Math.min(
-        Math.max((start.x - maxBounds.x) / Math.max(maxBounds.width, 1), 0),
-        1,
+    try {
+      stopDrag();
+      const start = screen.getCursorScreenPoint();
+      dragLog(
+        `dragStart maximized=${mainWindow.isMaximized()} fullscreen=${mainWindow.isFullScreen()} cursor=${start.x},${start.y} bounds=${JSON.stringify(mainWindow.getBounds())}`,
       );
-      originX = Math.round(start.x - ratio * width);
-      // el limite superior es el del monitor donde esta el cursor, no el 0
-      // global (con 2-3 pantallas el 0 puede ser otro monitor)
-      originY = Math.max(start.y - 14, area.y);
-      mainWindow.unmaximize();
-    } else {
-      const b = mainWindow.getBounds();
-      width = b.width;
-      height = b.height;
-      originX = b.x;
-      originY = b.y;
+      if (mainWindow.isFullScreen()) return;
+
+      // Tamano y posicion de partida. Se calculan aqui y se aplican en cada
+      // tick con setBounds (tamano fijo): con varios monitores de distinta
+      // escala, setPosition suelta cambia el tamano de la ventana al cruzar.
+      const follow = (
+        width: number,
+        height: number,
+        originX: number,
+        originY: number,
+      ) => {
+        const apply = (x: number, y: number) =>
+          mainWindow.setBounds({ x, y, width, height });
+        apply(originX, originY);
+        dragLog(
+          `inicio de arrastre: bounds=${JSON.stringify(mainWindow.getBounds())} maximized=${mainWindow.isMaximized()}`,
+        );
+
+        let lastX = originX;
+        let lastY = originY;
+        let ticks = 0;
+        dragTimer = setInterval(() => {
+          if (mainWindow.isDestroyed()) return stopDrag();
+          const now = screen.getCursorScreenPoint();
+          const x = originX + (now.x - start.x);
+          const y = originY + (now.y - start.y);
+          if (x === lastX && y === lastY) return;
+          lastX = x;
+          lastY = y;
+          apply(x, y);
+          if (++ticks === 5) {
+            dragLog(
+              `tick 5: wanted=${x},${y} bounds=${JSON.stringify(mainWindow.getBounds())}`,
+            );
+          }
+        }, 8);
+      };
+
+      if (mainWindow.isMaximized()) {
+        // Ventana maximizada: como hace Windows, se restaura y se coloca de modo
+        // que el cursor quede en la misma posicion relativa de la barra de titulo.
+        const display = screen.getDisplayNearestPoint(start);
+        const area = display.workArea;
+        const maxBounds = mainWindow.getBounds();
+        const normal = mainWindow.getNormalBounds();
+        const width = Math.min(normal.width, area.width);
+        const height = Math.min(normal.height, area.height);
+        const ratio = Math.min(
+          Math.max((start.x - maxBounds.x) / Math.max(maxBounds.width, 1), 0),
+          1,
+        );
+        const originX = Math.round(start.x - ratio * width);
+        // el limite superior es el del monitor donde esta el cursor, no el 0
+        // global (con 2-3 pantallas el 0 puede ser otro monitor)
+        const originY = Math.max(start.y - 14, area.y);
+        dragLog(
+          `maximizada: normal=${JSON.stringify(normal)} area=${JSON.stringify(area)} -> ${width}x${height} en ${originX},${originY}`,
+        );
+
+        mainWindow.unmaximize();
+        // Windows tarda un instante en restaurar: se espera a que deje de
+        // estar maximizada (max. ~300 ms) antes de colocarla.
+        let tries = 0;
+        dragTimer = setInterval(() => {
+          tries++;
+          const still = mainWindow.isMaximized();
+          if (still && tries < 30) return;
+          stopDrag();
+          dragLog(
+            `tras unmaximize: intentos=${tries} maximizada=${still} bounds=${JSON.stringify(mainWindow.getBounds())}`,
+          );
+          if (still) mainWindow.restore();
+          follow(width, height, originX, originY);
+        }, 10);
+      } else {
+        const b = mainWindow.getBounds();
+        follow(b.width, b.height, b.x, b.y);
+      }
+    } catch (err) {
+      dragLog(`ERROR en dragStart: ${String(err)}`);
     }
-
-    const apply = (x: number, y: number) =>
-      mainWindow.setBounds({ x, y, width, height });
-    apply(originX, originY);
-
-    let lastX = originX;
-    let lastY = originY;
-    dragTimer = setInterval(() => {
-      if (mainWindow.isDestroyed()) return stopDrag();
-      const now = screen.getCursorScreenPoint();
-      const x = originX + (now.x - start.x);
-      const y = originY + (now.y - start.y);
-      if (x === lastX && y === lastY) return;
-      lastX = x;
-      lastY = y;
-      apply(x, y);
-    }, 8);
   });
   ipcMain.on("dragEnd", () => {
     dragLog(`dragEnd bounds=${JSON.stringify(mainWindow.getBounds())}`);
