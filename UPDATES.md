@@ -38,3 +38,16 @@ fichero `RELEASES` y los `.nupkg`). Variable para pruebas:
   firma. Quien controle esa carpeta controla lo que se instala: protegerla.
 - Sin firma de codigo, Windows SmartScreen avisa al ejecutar el instalador la
   primera vez ("Mas informacion > Ejecutar de todas formas").
+
+## Aviso para la version de la Store
+
+La version de la Store consulta cada 6 h
+`https://starknet-chat.tech/desktop-updates/store-latest.json`:
+
+```json
+{ "version": "1.7.0" }
+```
+
+Si esa version es mayor que la instalada, muestra una notificacion con acceso
+a la ficha de la Store. **Publicar ese fichero solo cuando la Store ya haya
+publicado la version** (en el VPS: `~/stoat/desktop-updates/store-latest.json`).

@@ -9,7 +9,7 @@ import { initAutoLaunch } from "./native/autoLaunch";
 import { config } from "./native/config";
 import { initDiscordRpc } from "./native/discordRpc";
 import { initTray } from "./native/tray";
-import { initUpdater } from "./native/updater";
+import { initStoreNotifier, initUpdater } from "./native/updater";
 import { initVirtualMic } from "./native/virtualMic";
 import { BUILD_URL, createMainWindow, mainWindow } from "./native/window";
 
@@ -76,6 +76,7 @@ if (acquiredLock) {
     initVirtualMic();
     initAutoLaunch();
     initUpdater();
+    initStoreNotifier();
 
     // Windows specific fix for notifications
     if (process.platform === "win32") {

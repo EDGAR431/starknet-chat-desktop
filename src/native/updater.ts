@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-import { Notification, app, autoUpdater } from "electron";
+import { Notification, app, autoUpdater, shell } from "electron";
 
 /**
  * Actualizador propio (estilo Discord) para la version instalada FUERA de la
@@ -82,4 +82,65 @@ export function initUpdater() {
 
   setTimeout(check, FIRST_CHECK_DELAY_MS);
   setInterval(check, CHECK_EVERY_MS);
+}
+
+// ---------------------------------------------------------------------------
+// Aviso de version nueva para la version de la Microsoft Store.
+// La Store se actualiza sola, pero muchos usuarios no lo notan. Consultamos un
+// fichero pequeno que publicamos nosotros cuando la Store ya tiene la version
+// nueva, y avisamos con un boton que abre la ficha de la Store.
+// ---------------------------------------------------------------------------
+const STORE_LATEST_URL =
+  process.env.STARKNET_STORE_LATEST_URL ??
+  "https://starknet-chat.tech/desktop-updates/store-latest.json";
+const STORE_PRODUCT_URL = "ms-windows-store://pdp/?productid=9NMQ1VS1JQKN";
+const STORE_CHECK_EVERY_MS = 6 * 60 * 60 * 1000;
+
+function isNewer(remote: string, local: string) {
+  const a = remote.split(".").map((n) => parseInt(n, 10) || 0);
+  const b = local.split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if ((a[i] ?? 0) > (b[i] ?? 0)) return true;
+    if ((a[i] ?? 0) < (b[i] ?? 0)) return false;
+  }
+  return false;
+}
+
+export function isStoreBuild() {
+  return (
+    process.platform === "win32" &&
+    !!(process as NodeJS.Process & { windowsStore?: boolean }).windowsStore
+  );
+}
+
+let storeNotifiedFor: string | undefined;
+
+export function initStoreNotifier() {
+  if (!isStoreBuild()) return;
+
+  const check = async () => {
+    try {
+      const res = await fetch(STORE_LATEST_URL, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { version?: unknown };
+      const latest = typeof data.version === "string" ? data.version : "";
+      if (!/^\d+(\.\d+){1,3}$/.test(latest)) return;
+      if (!isNewer(latest, app.getVersion())) return;
+      if (storeNotifiedFor === latest) return;
+      storeNotifiedFor = latest;
+
+      const notification = new Notification({
+        title: "Hay una versión nueva",
+        body: `StarkNetChat ${latest} está disponible en la Microsoft Store. Pulse aquí para abrirla.`,
+        silent: true,
+      });
+      notification.on("click", () => void shell.openExternal(STORE_PRODUCT_URL));
+      notification.show();
+    } catch {
+      // sin red o fichero ausente: silencioso
+    }
+  };
+
+  setTimeout(check, FIRST_CHECK_DELAY_MS);
+  setInterval(check, STORE_CHECK_EVERY_MS);
 }
