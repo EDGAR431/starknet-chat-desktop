@@ -17,6 +17,17 @@ contextBridge.exposeInMainWorld("native", {
     ipcRenderer.removeAllListeners("maximised");
     ipcRenderer.on("maximised", (_, value) => cb(!!value));
   },
+  setVoiceShortcuts: (map: {
+    mute: string;
+    deafen: string;
+  }): Promise<{ mute: boolean; deafen: boolean }> =>
+    ipcRenderer.invoke("setVoiceShortcuts", map),
+  onVoiceShortcut: (cb: (action: "mute" | "deafen") => void) => {
+    ipcRenderer.removeAllListeners("voiceShortcut");
+    ipcRenderer.on("voiceShortcut", (_, action) => {
+      if (action === "mute" || action === "deafen") cb(action);
+    });
+  },
   checkForUpdates: (): Promise<string> => ipcRenderer.invoke("checkForUpdates"),
   installUpdate: () => ipcRenderer.send("installUpdate"),
   onUpdateReady: (cb: () => void) => {

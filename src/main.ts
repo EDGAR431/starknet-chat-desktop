@@ -8,6 +8,7 @@ import started from "electron-squirrel-startup";
 import { initAutoLaunch } from "./native/autoLaunch";
 import { config } from "./native/config";
 import { initDiscordRpc } from "./native/discordRpc";
+import { initShortcuts } from "./native/shortcuts";
 import { initTray } from "./native/tray";
 import { initStoreNotifier, initUpdater } from "./native/updater";
 import { initVirtualMic } from "./native/virtualMic";
@@ -76,6 +77,7 @@ if (acquiredLock) {
     initVirtualMic();
     initAutoLaunch();
     initUpdater();
+    initShortcuts();
     initStoreNotifier();
 
     // Windows specific fix for notifications
