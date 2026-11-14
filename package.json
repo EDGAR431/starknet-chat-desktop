@@ -2,7 +2,7 @@
   "name": "starknet-chat-desktop",
   "productName": "StarknetChat",
   "description": "Cliente de escritorio para nuestra instancia autoalojada de Stoat.",
-  "version": "1.7.5",
+  "version": "1.7.6",
   "main": ".vite/build/main.js",
   "repository": "EdgarVazquez/starknet-chat-desktop",
   "scripts": {
