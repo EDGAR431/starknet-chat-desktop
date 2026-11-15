@@ -73,11 +73,23 @@ const windowIcon = nativeImage.createFromDataURL(windowIconAsset);
 /**
  * Create the main application window
  */
+/**
+ * Barra de titulo nativa con superposicion (como Discord/VS Code): Windows
+ * gestiona el arrastre, el ajuste a bordes y los botones; la web dibuja la
+ * barra. Se desactiva con la variable STARKNET_MANUAL_TITLEBAR=1 (vuelve al
+ * arrastre manual anterior).
+ */
+let nativeOverlay = false;
+
 export function createMainWindow() {
   // (CLI arg --hidden or config)
   const startHidden =
     app.commandLine.hasSwitch("hidden") || config.startMinimisedToTray;
   const isMacOS = process.platform === "darwin";
+  nativeOverlay =
+    process.platform === "win32" &&
+    config.customFrame &&
+    process.env.STARKNET_MANUAL_TITLEBAR !== "1";
 
   // create the window
   mainWindow = new BrowserWindow({
@@ -86,8 +98,11 @@ export function createMainWindow() {
     width: 1280,
     height: 720,
     backgroundColor: "#191919",
-    frame: isMacOS ? true : !config.customFrame,
-    titleBarStyle: isMacOS ? "hidden" : "default",
+    frame: isMacOS || nativeOverlay ? true : !config.customFrame,
+    titleBarStyle: isMacOS || nativeOverlay ? "hidden" : "default",
+    titleBarOverlay: nativeOverlay
+      ? { color: "#2b2930", symbolColor: "#e6e0e9", height: 29 }
+      : undefined,
     trafficLightPosition: isMacOS ? { x: 8, y: 8 } : undefined,
     icon: windowIcon,
     show: false,
@@ -352,6 +367,19 @@ export function createMainWindow() {
     );
   });
   ipcMain.on("close", () => mainWindow.close());
+  ipcMain.on("getNativeOverlay", (event) => {
+    event.returnValue = nativeOverlay;
+  });
+  // la web ajusta el color de los botones nativos al tema de la barra
+  ipcMain.on("setTitleBarOverlay", (_event, color: unknown, symbol: unknown) => {
+    if (!nativeOverlay || mainWindow.isDestroyed()) return;
+    if (typeof color !== "string" || typeof symbol !== "string") return;
+    try {
+      mainWindow.setTitleBarOverlay({ color, symbolColor: symbol, height: 29 });
+    } catch (e) {
+      dragLog(`setTitleBarOverlay fallo: ${String(e)}`);
+    }
+  });
 
   // Arrastre de respaldo de la barra de título personalizada. Si la región
   // CSS `-webkit-app-region: drag` falla (el sistema se come el clic), la web

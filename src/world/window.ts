@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld("native", {
   minimise: () => ipcRenderer.send("minimise"),
   maximise: () => ipcRenderer.send("maximise"),
   close: () => ipcRenderer.send("close"),
+  nativeOverlay: (): boolean => !!ipcRenderer.sendSync("getNativeOverlay"),
+  setTitleBarOverlay: (color: string, symbolColor: string) =>
+    ipcRenderer.send("setTitleBarOverlay", color, symbolColor),
   onMaximisedChange: (cb: (maximised: boolean) => void) => {
     ipcRenderer.removeAllListeners("maximised");
     ipcRenderer.on("maximised", (_, value) => cb(!!value));
