@@ -433,21 +433,77 @@ export function createMainWindow() {
         dragLog(
           `pantalla: id=${display.id} escala=${display.scaleFactor} bounds=${JSON.stringify(display.bounds)} maximizable=${mainWindow.isMaximizable()} movable=${mainWindow.isMovable()} resizable=${mainWindow.isResizable()}`,
         );
-        mainWindow.unmaximize();
-        // Windows tarda un instante en restaurar: se espera a que deje de
-        // estar maximizada (max. ~300 ms) antes de colocarla.
-        let tries = 0;
-        dragTimer = setInterval(() => {
-          tries++;
-          const still = mainWindow.isMaximized();
-          if (still && tries < 30) return;
-          stopDrag();
+        // Diagnostico: cronologia de lo que hace la ventana al restaurarla
+        const t0 = Date.now();
+        const snap = (label: string) =>
           dragLog(
-            `tras unmaximize: intentos=${tries} maximizada=${still} bounds=${JSON.stringify(mainWindow.getBounds())}`,
+            `  [+${Date.now() - t0}ms] ${label}: maximizada=${mainWindow.isMaximized()} minimizada=${mainWindow.isMinimized()} enfocada=${mainWindow.isFocused()} bounds=${JSON.stringify(mainWindow.getBounds())}`,
           );
-          if (still) mainWindow.restore();
-          follow(width, height, originX, originY);
-        }, 10);
+        const evs = [
+          "maximize",
+          "unmaximize",
+          "restore",
+          "resize",
+          "resized",
+          "move",
+          "moved",
+          "will-resize",
+          "will-move",
+          "focus",
+          "blur",
+        ] as const;
+        const handlers = evs.map((name) => {
+          const h = () => snap(`evento ${name}`);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (mainWindow as any).on(name, h);
+          return [name, h] as const;
+        });
+        const detach = () =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          handlers.forEach(([name, h]) => (mainWindow as any).off(name, h));
+        setTimeout(detach, 2000);
+
+        snap("antes de unmaximize");
+        mainWindow.unmaximize();
+        snap("justo tras unmaximize()");
+
+        // Windows tarda un instante en restaurar. Se comprueba cada 5 ms y,
+        // si no se restaura, se escala: restore() a los 60 ms y un cambio de
+        // tamano forzado a los 150 ms. Maximo ~600 ms.
+        let escalated1 = false;
+        let escalated2 = false;
+        dragTimer = setInterval(() => {
+          const elapsed = Date.now() - t0;
+          const still = mainWindow.isMaximized();
+          if (!still) {
+            stopDrag();
+            snap("restaurada");
+            follow(width, height, originX, originY);
+            return;
+          }
+          if (elapsed >= 60 && !escalated1) {
+            escalated1 = true;
+            snap("sigue maximizada, pruebo restore()");
+            mainWindow.restore();
+            snap("tras restore()");
+          }
+          if (elapsed >= 150 && !escalated2) {
+            escalated2 = true;
+            snap("sigue maximizada, pruebo setBounds forzado");
+            mainWindow.setBounds({
+              x: originX,
+              y: originY,
+              width,
+              height,
+            });
+            snap("tras setBounds forzado");
+          }
+          if (elapsed >= 600) {
+            stopDrag();
+            snap("NO SE PUDO RESTAURAR");
+            follow(width, height, originX, originY);
+          }
+        }, 5);
       } else {
         const b = mainWindow.getBounds();
         follow(b.width, b.height, b.x, b.y);
