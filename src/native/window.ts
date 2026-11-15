@@ -410,7 +410,7 @@ export function createMainWindow() {
     ].find((p) => existsSync(p));
     if (exe && !process.env.STARKNET_MANUAL_DRAG) {
       try {
-        const child = spawn(exe, [], {
+        const child = spawn(exe, [join(app.getPath("userData"), "drag-debug.log")], {
           stdio: ["pipe", "ignore", "ignore"],
           windowsHide: true,
         });
@@ -467,7 +467,7 @@ export function createMainWindow() {
       // Arrastre nativo de Windows: lo hace el sistema, con el boton pulsado.
       const h = hwndText();
       if (dragHelper?.stdin?.writable && h) {
-        dragHelper.stdin.write(`move ${h}\n`);
+        dragHelper.stdin.write(`drag ${h}\n`);
         dragLog("arrastre nativo pedido a win-drag.exe");
         return;
       }
