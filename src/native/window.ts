@@ -1,4 +1,3 @@
-import { execFile } from "node:child_process";
 import { release } from "node:os";
 import { appendFileSync } from "node:fs";
 import { join } from "node:path";
@@ -358,40 +357,19 @@ export function createMainWindow() {
   // CSS `-webkit-app-region: drag` falla (el sistema se come el clic), la web
   // llama a estos dos mensajes y movemos la ventana nosotros siguiendo el
   // cursor. Si la región CSS funciona, estos mensajes nunca llegan.
-  /** HWND de la ventana como texto (solo Windows) */
-  const hwndText = (): string | undefined => {
-    try {
-      const b = mainWindow.getNativeWindowHandle();
-      return b.length >= 8
-        ? b.readBigUInt64LE(0).toString()
-        : String(b.readUInt32LE(0));
-    } catch {
-      return undefined;
-    }
-  };
-  /**
-   * Prueba de diagnostico: pide a Windows, desde OTRO proceso, que restaure
-   * la ventana (ShowWindow SW_RESTORE). Si esto funciona y el unmaximize() de
-   * Electron no, el bloqueo esta dentro de Electron/Chromium.
-   */
-  const probeRestoreFromOutside = () => {
-    const h = hwndText();
-    if (process.platform !== "win32" || !h) return;
-    const script = `Add-Type 'using System;using System.Runtime.InteropServices;public class W{[DllImport("user32.dll")]public static extern bool ShowWindow(IntPtr h,int c);[DllImport("user32.dll")]public static extern bool IsZoomed(IntPtr h);[DllImport("user32.dll")]public static extern IntPtr GetCapture();}'; $h=[IntPtr]${h}; 'zoomed antes=' + [W]::IsZoomed($h); [W]::ShowWindow($h,9) | Out-Null; 'zoomed despues=' + [W]::IsZoomed($h)`;
-    execFile(
-      "powershell.exe",
-      ["-NoProfile", "-NonInteractive", "-Command", script],
-      { timeout: 4000, windowsHide: true },
-      (err, stdout, stderr) =>
-        dragLog(
-          `  sonda externa (PowerShell ShowWindow RESTORE): err=${err ? String(err) : "no"} salida=${String(stdout).replace(/\s+/g, " ").trim()} stderr=${String(stderr).trim().slice(0, 120)} -> maximizada=${mainWindow.isMaximized()} bounds=${JSON.stringify(mainWindow.getBounds())}`,
-        ),
-    );
-  };
 
   let dragTimer: ReturnType<typeof setInterval> | undefined;
+  let restoreTimer: ReturnType<typeof setInterval> | undefined;
+  const stopRestore = () => {
+    if (restoreTimer) clearInterval(restoreTimer);
+    restoreTimer = undefined;
+  };
+  let pendingRestore:
+    | { width: number; height: number; ratio: number; moved: boolean }
+    | undefined;
   let dragSafety: ReturnType<typeof setTimeout> | undefined;
   const stopDrag = () => {
+    stopRestore();
     if (dragTimer) clearInterval(dragTimer);
     dragTimer = undefined;
     if (dragSafety) clearTimeout(dragSafety);
@@ -454,8 +432,9 @@ export function createMainWindow() {
       };
 
       if (mainWindow.isMaximized()) {
-        // Ventana maximizada: como hace Windows, se restaura y se coloca de modo
-        // que el cursor quede en la misma posicion relativa de la barra de titulo.
+        // Ventana maximizada: como hace Windows, al arrastrar se restaura y se
+        // coloca de modo que el cursor quede en la misma posicion relativa de
+        // la barra de titulo. Un simple clic (sin mover) no restaura nada.
         const display = screen.getDisplayNearestPoint(start);
         const area = display.workArea;
         const maxBounds = mainWindow.getBounds();
@@ -470,108 +449,37 @@ export function createMainWindow() {
         // el limite superior es el del monitor donde esta el cursor, no el 0
         // global (con 2-3 pantallas el 0 puede ser otro monitor)
         const originY = Math.max(start.y - 14, area.y);
+        pendingRestore = { width, height, ratio, moved: false };
         dragLog(
           `maximizada: normal=${JSON.stringify(normal)} area=${JSON.stringify(area)} -> ${width}x${height} en ${originX},${originY}`,
         );
 
-        dragLog(
-          `pantalla: id=${display.id} escala=${display.scaleFactor} bounds=${JSON.stringify(display.bounds)} maximizable=${mainWindow.isMaximizable()} movable=${mainWindow.isMovable()} resizable=${mainWindow.isResizable()}`,
-        );
-        // Diagnostico: cronologia de lo que hace la ventana al restaurarla
-        const t0 = Date.now();
-        const snap = (label: string) =>
-          dragLog(
-            `  [+${Date.now() - t0}ms] ${label}: maximizada=${mainWindow.isMaximized()} minimizada=${mainWindow.isMinimized()} enfocada=${mainWindow.isFocused()} bounds=${JSON.stringify(mainWindow.getBounds())}`,
-          );
-        const evs = [
-          "maximize",
-          "unmaximize",
-          "restore",
-          "resize",
-          "resized",
-          "move",
-          "moved",
-          "will-resize",
-          "will-move",
-          "focus",
-          "blur",
-        ] as const;
-        const handlers = evs.map((name) => {
-          const h = () => snap(`evento ${name}`);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (mainWindow as any).on(name, h);
-          return [name, h] as const;
-        });
-        const detach = () =>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          handlers.forEach(([name, h]) => (mainWindow as any).off(name, h));
-        setTimeout(detach, 2000);
-
-        snap("antes de unmaximize");
-        mainWindow.unmaximize();
-        snap("justo tras unmaximize()");
-
-        // Windows tarda un instante en restaurar. Se comprueba cada 5 ms y,
-        // si no se restaura, se escala: restore() a los 60 ms y un cambio de
-        // tamano forzado a los 150 ms. Maximo ~600 ms.
-        let escalated1 = false;
-        let escalated2 = false;
-        let escalated3 = false;
-        let escalated4 = false;
+        // Se espera a que el cursor se mueva (umbral 5 px). Desde entonces se
+        // pide unmaximize() cada 40 ms: si Windows lo acepta con el boton
+        // pulsado, el arrastre es en vivo; si no, se completa al soltar
+        // (ver dragEnd).
+        let lastTry = 0;
         dragTimer = setInterval(() => {
-          const elapsed = Date.now() - t0;
-          const still = mainWindow.isMaximized();
-          if (!still) {
+          if (mainWindow.isDestroyed()) return stopDrag();
+          const now = screen.getCursorScreenPoint();
+          if (
+            !pendingRestore?.moved &&
+            Math.hypot(now.x - start.x, now.y - start.y) < 5
+          )
+            return;
+          if (pendingRestore) pendingRestore.moved = true;
+          if (!mainWindow.isMaximized()) {
             stopDrag();
-            snap("restaurada");
+            pendingRestore = undefined;
+            dragLog("restaurada con el boton pulsado: arrastre en vivo");
             follow(width, height, originX, originY);
             return;
           }
-          if (elapsed >= 60 && !escalated1) {
-            escalated1 = true;
-            snap("sigue maximizada, pruebo restore()");
-            mainWindow.restore();
-            snap("tras restore()");
-          }
-          if (elapsed >= 150 && !escalated2) {
-            escalated2 = true;
-            snap("sigue maximizada, pruebo setBounds forzado");
-            mainWindow.setBounds({
-              x: originX,
-              y: originY,
-              width,
-              height,
-            });
-            snap("tras setBounds forzado");
-          }
-          if (elapsed >= 220 && !escalated3) {
-            escalated3 = true;
-            snap("sigue maximizada, pruebo mouseUp sintetico + unmaximize()");
-            try {
-              mainWindow.webContents.sendInputEvent({
-                type: "mouseUp",
-                x: 5,
-                y: 5,
-                button: "left",
-                clickCount: 1,
-              });
-            } catch (e) {
-              dragLog(`  mouseUp sintetico fallo: ${String(e)}`);
-            }
+          if (Date.now() - lastTry >= 40) {
+            lastTry = Date.now();
             mainWindow.unmaximize();
-            snap("tras mouseUp sintetico + unmaximize()");
           }
-          if (elapsed >= 320 && !escalated4) {
-            escalated4 = true;
-            snap("sigue maximizada, lanzo la sonda externa");
-            probeRestoreFromOutside();
-          }
-          if (elapsed >= 1200) {
-            stopDrag();
-            snap("NO SE PUDO RESTAURAR");
-            follow(width, height, originX, originY);
-          }
-        }, 5);
+        }, 8);
       } else {
         const b = mainWindow.getBounds();
         follow(b.width, b.height, b.x, b.y);
@@ -583,21 +491,35 @@ export function createMainWindow() {
   ipcMain.on("dragEnd", () => {
     dragLog(`dragEnd bounds=${JSON.stringify(mainWindow.getBounds())}`);
     stopDrag();
-    // Diagnostico: ya soltado el boton, se intenta restaurar la ventana una
-    // vez y se anota si ahora SI obedece.
-    if (mainWindow.isMaximized() && process.platform === "win32") {
-      setTimeout(() => {
-        if (!mainWindow.isMaximized()) return;
-        dragLog("  tras soltar: sigue maximizada, pruebo unmaximize()");
-        mainWindow.unmaximize();
-        setTimeout(
-          () =>
-            dragLog(
-              `  tras soltar + unmaximize(): maximizada=${mainWindow.isMaximized()} bounds=${JSON.stringify(mainWindow.getBounds())}`,
-            ),
-          150,
+    const pr = pendingRestore;
+    pendingRestore = undefined;
+    // Windows ignora restaurar una ventana maximizada mientras el boton sigue
+    // pulsado. Si el usuario arrastro (no fue un simple clic) y la ventana
+    // sigue maximizada, se restaura en cuanto se suelta, reintentando hasta
+    // que Windows obedezca, y se coloca bajo el cursor.
+    if (pr && pr.moved && mainWindow.isMaximized() && process.platform === "win32") {
+      const t0 = Date.now();
+      restoreTimer = setInterval(() => {
+        if (mainWindow.isDestroyed()) return stopRestore();
+        if (mainWindow.isMaximized()) {
+          if (Date.now() - t0 > 1500) {
+            stopRestore();
+            dragLog("  tras soltar: NO se pudo restaurar en 1,5 s");
+            return;
+          }
+          mainWindow.unmaximize();
+          return;
+        }
+        stopRestore();
+        const c = screen.getCursorScreenPoint();
+        const area = screen.getDisplayNearestPoint(c).workArea;
+        const x = Math.round(c.x - pr.ratio * pr.width);
+        const y = Math.max(c.y - 14, area.y);
+        mainWindow.setBounds({ x, y, width: pr.width, height: pr.height });
+        dragLog(
+          `  restaurada tras soltar (${Date.now() - t0} ms): bounds=${JSON.stringify(mainWindow.getBounds())}`,
         );
-      }, 80);
+      }, 30);
     }
   });
   mainWindow.on("closed", stopDrag);
