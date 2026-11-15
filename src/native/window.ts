@@ -1,5 +1,6 @@
+import { type ChildProcess, spawn } from "node:child_process";
+import { appendFileSync, existsSync } from "node:fs";
 import { release } from "node:os";
-import { appendFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
@@ -76,8 +77,8 @@ const windowIcon = nativeImage.createFromDataURL(windowIconAsset);
 /**
  * Barra de titulo nativa con superposicion (como Discord/VS Code): Windows
  * gestiona el arrastre, el ajuste a bordes y los botones; la web dibuja la
- * barra. Se desactiva con la variable STARKNET_MANUAL_TITLEBAR=1 (vuelve al
- * arrastre manual anterior).
+ * barra. Es opcional: se activa con STARKNET_NATIVE_TITLEBAR=1. Por defecto se
+ * usa la barra propia con el arrastre nativo de win-drag.exe.
  */
 let nativeOverlay = false;
 
@@ -89,7 +90,7 @@ export function createMainWindow() {
   nativeOverlay =
     process.platform === "win32" &&
     config.customFrame &&
-    process.env.STARKNET_MANUAL_TITLEBAR !== "1";
+    process.env.STARKNET_NATIVE_TITLEBAR === "1";
 
   // create the window
   mainWindow = new BrowserWindow({
@@ -386,6 +387,53 @@ export function createMainWindow() {
   // llama a estos dos mensajes y movemos la ventana nosotros siguiendo el
   // cursor. Si la región CSS funciona, estos mensajes nunca llegan.
 
+  /** HWND de la ventana como texto (solo Windows) */
+  const hwndText = (): string | undefined => {
+    try {
+      const b = mainWindow.getNativeWindowHandle();
+      return b.length >= 8
+        ? b.readBigUInt64LE(0).toString()
+        : String(b.readUInt32LE(0));
+    } catch {
+      return undefined;
+    }
+  };
+
+  // win-drag.exe: arrastre NATIVO de Windows para la barra personalizada
+  // (restaurar al instante desde maximizada, ajuste a bordes...)
+  let dragHelper: ChildProcess | undefined;
+  if (process.platform === "win32" && !nativeOverlay) {
+    const exe = [
+      join(process.resourcesPath ?? "", "win-drag.exe"),
+      join(app.getAppPath(), "native", "win-drag", "win-drag.exe"),
+      join(process.cwd(), "native", "win-drag", "win-drag.exe"),
+    ].find((p) => existsSync(p));
+    if (exe && !process.env.STARKNET_MANUAL_DRAG) {
+      try {
+        const child = spawn(exe, [], {
+          stdio: ["pipe", "ignore", "ignore"],
+          windowsHide: true,
+        });
+        child.on("exit", () => {
+          if (dragHelper === child) dragHelper = undefined;
+        });
+        child.on("error", () => {
+          if (dragHelper === child) dragHelper = undefined;
+        });
+        dragHelper = child;
+        app.on("before-quit", () => child.kill());
+        dragLog(`win-drag.exe en marcha: ${exe}`);
+      } catch (e) {
+        dragLog(`win-drag.exe no arranco: ${String(e)}`);
+      }
+    } else {
+      dragLog(`win-drag.exe no disponible (exe=${exe ?? "no"})`);
+    }
+  }
+  ipcMain.on("getNativeDrag", (event) => {
+    event.returnValue = !!dragHelper;
+  });
+
   let dragTimer: ReturnType<typeof setInterval> | undefined;
   let restoreTimer: ReturnType<typeof setInterval> | undefined;
   const stopRestore = () => {
@@ -415,6 +463,14 @@ export function createMainWindow() {
         `dragStart maximized=${mainWindow.isMaximized()} fullscreen=${mainWindow.isFullScreen()} cursor=${start.x},${start.y} bounds=${JSON.stringify(mainWindow.getBounds())}`,
       );
       if (mainWindow.isFullScreen()) return;
+
+      // Arrastre nativo de Windows: lo hace el sistema, con el boton pulsado.
+      const h = hwndText();
+      if (dragHelper?.stdin?.writable && h) {
+        dragHelper.stdin.write(`move ${h}\n`);
+        dragLog("arrastre nativo pedido a win-drag.exe");
+        return;
+      }
 
       // Seguro: si por lo que sea nunca llega el fin del arrastre, la ventana
       // no se queda pegada al cursor para siempre.

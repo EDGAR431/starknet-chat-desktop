@@ -103,7 +103,10 @@ const config: ForgeConfig = {
         ? `${ASSET_DIR}/icon.icon`
         : `${ASSET_DIR}/icon`,
     // Ayudante nativo de audio por aplicación (Windows)
-    extraResource: ["native/proc-audio/proc-audio.exe"],
+    extraResource: [
+      "native/proc-audio/proc-audio.exe",
+      "native/win-drag/win-drag.exe",
+    ],
     // extraResource: [
     //   // include all the asset files
     //   ...globSync(ASSET_DIR + "/**/*"),

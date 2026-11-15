@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("native", {
   minimise: () => ipcRenderer.send("minimise"),
   maximise: () => ipcRenderer.send("maximise"),
   close: () => ipcRenderer.send("close"),
+  nativeDrag: (): boolean => !!ipcRenderer.sendSync("getNativeDrag"),
   nativeOverlay: (): boolean => !!ipcRenderer.sendSync("getNativeOverlay"),
   setTitleBarOverlay: (color: string, symbolColor: string) =>
     ipcRenderer.send("setTitleBarOverlay", color, symbolColor),
