@@ -64,7 +64,11 @@ export function stopAppAudio() {
 }
 
 /**
- * Arranca la captura del audio de la ventana indicada.
+ * Arranca la captura de audio para una retransmision.
+ *  - Ventana ("window:..."): solo el audio de esa ventana.
+ *  - Pantalla completa ("screen:..."): todo el audio del sistema MENOS el de
+ *    esta propia app (voces de la llamada, soundboard...), para que los
+ *    espectadores no se oigan duplicados.
  * @param sourceId id de desktopCapturer, p. ej. "window:132456:0"
  * @returns true si se ha lanzado el ayudante
  */
@@ -72,10 +76,14 @@ export function startAppAudio(sourceId: string, win: BrowserWindow): boolean {
   stopAppAudio();
   const exe = helperPath();
   const m = /^window:(\d+):/.exec(sourceId);
-  if (!exe || !m || !appAudioAvailable()) return false;
+  const isScreen = sourceId.startsWith("screen:");
+  if (!exe || (!m && !isScreen) || !appAudioAvailable()) return false;
 
-  log(`start ${sourceId} (${exe})`);
-  const child = spawn(exe, ["--hwnd", m[1]], {
+  const args = isScreen
+    ? ["--exclude-pid", String(process.pid)]
+    : ["--hwnd", m![1]];
+  log(`start ${sourceId} (${exe}) args=${args.join(" ")}`);
+  const child = spawn(exe, args, {
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
   });

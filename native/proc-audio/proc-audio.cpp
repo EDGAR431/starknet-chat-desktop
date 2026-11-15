@@ -5,6 +5,9 @@
 // (como en Discord), sin las voces de la llamada ni el resto del sistema.
 //
 // Uso:  proc-audio.exe --hwnd <HWND decimal>   |   proc-audio.exe --pid <PID>
+//       proc-audio.exe --exclude-pid <PID>   (todo el audio del sistema MENOS
+//       el de ese proceso y sus hijos: sirve para compartir pantalla completa
+//       sin que se cuelen las voces de la propia app)
 // Se detiene solo cuando se cierra stdin o stdout.
 #define WIN32_LEAN_AND_MEAN
 #ifndef _WIN32_WINNT
@@ -89,12 +92,16 @@ static DWORD WINAPI watchStdin(LPVOID) {
 
 int main(int argc, char **argv) {
   DWORD pid = 0;
+  bool exclude = false;
   for (int i = 1; i + 1 < argc; i++) {
     if (!strcmp(argv[i], "--hwnd")) {
       HWND hwnd = (HWND)(ULONG_PTR)_strtoui64(argv[i + 1], nullptr, 10);
       GetWindowThreadProcessId(hwnd, &pid);
     } else if (!strcmp(argv[i], "--pid")) {
       pid = (DWORD)strtoul(argv[i + 1], nullptr, 10);
+    } else if (!strcmp(argv[i], "--exclude-pid")) {
+      pid = (DWORD)strtoul(argv[i + 1], nullptr, 10);
+      exclude = true;
     }
   }
   if (!pid) {
@@ -110,7 +117,9 @@ int main(int argc, char **argv) {
   AUDIOCLIENT_ACTIVATION_PARAMS ap = {};
   ap.ActivationType = AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK;
   ap.ProcessLoopbackParams.TargetProcessId = pid;
-  ap.ProcessLoopbackParams.ProcessLoopbackMode = PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE;
+  ap.ProcessLoopbackParams.ProcessLoopbackMode = exclude
+      ? PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE
+      : PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE;
   PROPVARIANT pv = {};
   pv.vt = VT_BLOB;
   pv.blob.cbSize = sizeof(ap);

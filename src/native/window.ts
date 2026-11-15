@@ -288,12 +288,14 @@ export function createMainWindow() {
                 callback({});
               } else if (
                 audio &&
-                sources[idx].id.startsWith("window:") &&
+                (sources[idx].id.startsWith("window:") ||
+                  sources[idx].id.startsWith("screen:")) &&
                 appAudioAvailable()
               ) {
-                // Audio solo de la ventana compartida (sin voces de la
-                // llamada): lo captura el ayudante nativo y se publica
-                // desde la web; aquí no se pide loopback del sistema.
+                // Ventana: solo el audio de esa ventana. Pantalla completa:
+                // todo el audio del sistema menos el de esta app (sin las
+                // voces de la llamada). Lo captura el ayudante nativo y se
+                // publica desde la web; aquí no se pide loopback del sistema.
                 callback({ video: sources[idx] });
                 if (!startAppAudio(sources[idx].id, mainWindow)) {
                   dragLog("appAudio: no se pudo lanzar el ayudante");
