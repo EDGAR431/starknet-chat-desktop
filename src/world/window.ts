@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld("native", {
   },
   dragStart: () => ipcRenderer.send("dragStart"),
   dragEnd: () => ipcRenderer.send("dragEnd"),
+  dragLog: (message: string) => ipcRenderer.send("dragLog", String(message)),
   relaunch: () => ipcRenderer.send("relaunch"),
 
   setBadgeCount: (count: number) => ipcRenderer.send("setBadgeCount", count),

@@ -346,10 +346,17 @@ export function createMainWindow() {
   // llama a estos dos mensajes y movemos la ventana nosotros siguiendo el
   // cursor. Si la región CSS funciona, estos mensajes nunca llegan.
   let dragTimer: ReturnType<typeof setInterval> | undefined;
+  let dragSafety: ReturnType<typeof setTimeout> | undefined;
   const stopDrag = () => {
     if (dragTimer) clearInterval(dragTimer);
     dragTimer = undefined;
+    if (dragSafety) clearTimeout(dragSafety);
+    dragSafety = undefined;
   };
+  // lineas que envia la web (eventos del puntero) al mismo registro
+  ipcMain.on("dragLog", (_event, message: unknown) =>
+    dragLog(String(message).slice(0, 300)),
+  );
   ipcMain.on("dragStart", () => {
     try {
       stopDrag();
@@ -358,6 +365,13 @@ export function createMainWindow() {
         `dragStart maximized=${mainWindow.isMaximized()} fullscreen=${mainWindow.isFullScreen()} cursor=${start.x},${start.y} bounds=${JSON.stringify(mainWindow.getBounds())}`,
       );
       if (mainWindow.isFullScreen()) return;
+
+      // Seguro: si por lo que sea nunca llega el fin del arrastre, la ventana
+      // no se queda pegada al cursor para siempre.
+      dragSafety = setTimeout(() => {
+        dragLog("seguro: arrastre cortado a los 60 s sin dragEnd");
+        stopDrag();
+      }, 60_000);
 
       // Tamano y posicion de partida. Se calculan aqui y se aplican en cada
       // tick con setBounds (tamano fijo): con varios monitores de distinta
@@ -416,6 +430,9 @@ export function createMainWindow() {
           `maximizada: normal=${JSON.stringify(normal)} area=${JSON.stringify(area)} -> ${width}x${height} en ${originX},${originY}`,
         );
 
+        dragLog(
+          `pantalla: id=${display.id} escala=${display.scaleFactor} bounds=${JSON.stringify(display.bounds)} maximizable=${mainWindow.isMaximizable()} movable=${mainWindow.isMovable()} resizable=${mainWindow.isResizable()}`,
+        );
         mainWindow.unmaximize();
         // Windows tarda un instante en restaurar: se espera a que deje de
         // estar maximizada (max. ~300 ms) antes de colocarla.
