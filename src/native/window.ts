@@ -275,11 +275,69 @@ export function createMainWindow() {
   });
 
   // Create display media request handler
+  // El selector solo enseña el icono de cada app, no una miniatura: pedir
+  // miniaturas (por defecto 150x150 de CADA ventana) era lo que hacía tardar
+  // varios segundos en abrirse. Además se guarda la última lista para abrir al
+  // instante (se precalienta al entrar en una llamada).
+  type CapturerSources = Awaited<ReturnType<typeof desktopCapturer.getSources>>;
+  let sourcesCache: { at: number; sources: CapturerSources } | undefined;
+  let sourcesPending: Promise<CapturerSources> | undefined;
+  const SOURCES_CACHE_MS = 8000;
+
+  const fetchSources = (): Promise<CapturerSources> => {
+    if (sourcesPending) return sourcesPending;
+    sourcesPending = desktopCapturer
+      .getSources({
+        types: ["screen", "window"],
+        fetchWindowIcons: true,
+        thumbnailSize: { width: 0, height: 0 },
+      })
+      .then((sources) => {
+        sourcesCache = { at: Date.now(), sources };
+        return sources;
+      })
+      .finally(() => {
+        sourcesPending = undefined;
+      });
+    return sourcesPending;
+  };
+
+  const getSourcesFast = (): Promise<CapturerSources> => {
+    if (sourcesCache && Date.now() - sourcesCache.at < SOURCES_CACHE_MS) {
+      const cached = sourcesCache.sources;
+      void fetchSources().catch(() => undefined); // refresca en segundo plano
+      return Promise.resolve(cached);
+    }
+    return fetchSources();
+  };
+
+  ipcMain.on("prewarmScreenSources", () => {
+    void fetchSources().catch(() => undefined);
+  });
+
   session.defaultSession.setDisplayMediaRequestHandler(
     (request, callback) => {
-      desktopCapturer
-        .getSources({ types: ["screen", "window"], fetchWindowIcons: true })
+      // Denegar la petición (cancelar el selector). Con `callback({})` Electron
+      // lanza «Video was requested, but no video stream was provided» en el
+      // proceso principal; hay que llamar sin argumentos.
+      const deny = () => {
+        try {
+          (callback as unknown as () => void)();
+        } catch (e) {
+          dragLog(`screenshare: no se pudo denegar la peticion: ${e}`);
+        }
+      };
+
+      getSourcesFast()
+        .catch((e) => {
+          dragLog(`screenshare: getSources fallo: ${e}`);
+          return [] as CapturerSources;
+        })
         .then((sources) => {
+          if (sources.length === 0) {
+            deny();
+            return;
+          }
           // Shortcut for linux wayland.
           if (sources.length == 1) {
             request.audioRequested
@@ -300,7 +358,7 @@ export function createMainWindow() {
             (_, idx: number, audio: boolean) => {
               if (!Number.isInteger(idx) || idx < 0 || idx >= sources.length) {
                 stopAppAudio();
-                callback({});
+                deny();
               } else if (
                 audio &&
                 (sources[idx].id.startsWith("window:") ||

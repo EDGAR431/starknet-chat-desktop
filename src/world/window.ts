@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld("native", {
     ipcRenderer.removeAllListeners(eventName);
     ipcRenderer.once(eventName, (_, sources) => onScreenPick(sources));
   },
+  prewarmScreenSources: () => ipcRenderer.send("prewarmScreenSources"),
   screenPickerCallback: (idx: number, audio: boolean) =>
     ipcRenderer.send("screenPickerCallback", idx, audio),
 
