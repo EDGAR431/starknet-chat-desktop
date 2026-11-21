@@ -175,7 +175,7 @@ const config: ForgeConfig = {
   publishers: [
     new PublisherGithub({
       repository: {
-        owner: "EdgarVazquez",
+        owner: "EDGAR431",
         name: "starknet-chat-desktop",
       },
     }),
