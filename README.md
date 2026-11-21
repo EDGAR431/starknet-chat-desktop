@@ -13,6 +13,16 @@ Application for Windows, macOS, and Linux.
 </div>
 <br/>
 
+## StarknetChat
+
+This repository is a modified fork of Stoat's desktop app, powering [starknet-chat.tech](https://starknet-chat.tech). It is published here to comply with the AGPLv3 license. Related repositories:
+
+- Web client: https://github.com/EDGAR431/starknet-chat-web
+- Backend: https://github.com/EDGAR431/starknet-chat-backend
+- Android app: https://github.com/EDGAR431/starknet-chat-android
+
+<br/>
+
 ## Installation
 
 <a href="https://repology.org/project/stoat-desktop/versions">
