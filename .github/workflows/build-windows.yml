@@ -1,8 +1,9 @@
-# Compila el instalador de Windows desde el código público y, cuando el
-# proyecto esté dado de alta en SignPath, lo envía a firmar.
-# Se lanza a mano (Actions > Build Windows installer > Run workflow)
+# Compila el instalador de Windows y el paquete de Linux desde el código
+# público y, cuando el proyecto esté dado de alta en SignPath, envía el de
+# Windows a firmar.
+# Se lanza a mano (Actions > Build installers > Run workflow)
 # o al publicar una etiqueta tipo v1.7.18.
-name: Build Windows installer
+name: Build installers
 
 on:
   workflow_dispatch:
@@ -14,7 +15,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -37,14 +38,15 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 26
+          # Node 26 rompe el generador de ZIP de electron-forge (cross-zip)
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build installer
-        run: pnpm make
+        run: pnpm make --targets=@electron-forge/maker-squirrel
 
       - name: Upload unsigned installer
         id: upload-unsigned
@@ -74,3 +76,40 @@ jobs:
         with:
           name: signed-installer
           path: signed/
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev libspa-0.2-dev
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Package application
+        run: pnpm package
+
+      - name: Create tar.gz
+        run: |
+          cd out/StarknetChat-linux-x64
+          tar -zcf ../../starknetchat-desktop-linux-x64.tar.gz .
+
+      - name: Upload Linux package
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-package
+          path: starknetchat-desktop-linux-x64.tar.gz
