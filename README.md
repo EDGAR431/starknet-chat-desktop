@@ -1,41 +1,14 @@
-<div align="center">
-<h1>
-  Stoat for Desktop
-  
-  [![Stars](https://img.shields.io/github/stars/stoatchat/for-desktop?style=flat-square&logoColor=white)](https://github.com/stoatchat/for-desktop/stargazers)
-  [![Forks](https://img.shields.io/github/forks/stoatchat/for-desktop?style=flat-square&logoColor=white)](https://github.com/stoatchat/for-desktop/network/members)
-  [![Pull Requests](https://img.shields.io/github/issues-pr/stoatchat/for-desktop?style=flat-square&logoColor=white)](https://github.com/stoatchat/for-desktop/pulls)
-  [![Issues](https://img.shields.io/github/issues/stoatchat/for-desktop?style=flat-square&logoColor=white)](https://github.com/stoatchat/for-desktop/issues)
-  [![Contributors](https://img.shields.io/github/contributors/stoatchat/for-desktop?style=flat-square&logoColor=white)](https://github.com/stoatchat/for-desktop/graphs/contributors)
-  [![License](https://img.shields.io/github/license/stoatchat/for-desktop?style=flat-square&logoColor=white)](https://github.com/stoatchat/for-desktop/blob/main/LICENSE)
-</h1>
-Application for Windows, macOS, and Linux.
-</div>
-<br/>
+# StarknetChat — Desktop App
 
-## StarknetChat
+Desktop application for Windows, macOS, and Linux, powering [starknet-chat.tech](https://starknet-chat.tech).
 
-This repository is a modified fork of Stoat's desktop app, powering [starknet-chat.tech](https://starknet-chat.tech). It is published here to comply with the AGPLv3 license. Related repositories:
+This repository is a modified fork of Stoat's desktop app (AGPL-3.0). It is published here to comply with that license. Related repositories:
 
 - Web client: https://github.com/EDGAR431/starknet-chat-web
 - Backend: https://github.com/EDGAR431/starknet-chat-backend
 - Android app: https://github.com/EDGAR431/starknet-chat-android
 
-<br/>
-
-## Installation
-
-<a href="https://repology.org/project/stoat-desktop/versions">
-    <img src="https://repology.org/badge/vertical-allrepos/stoat-desktop.svg" alt="Packaging status" align="right">
-</a>
-
-- All downloads and instructions for Stoat can be found on our [Website](https://stoat.chat/download).
-
 ## Development Guide
-
-_Contribution guidelines for Desktop app TBA!_
-
-<!-- Before contributing, make yourself familiar with [our contribution guidelines](https://developers.revolt.chat/contrib.html), the [code style guidelines](./GUIDELINES.md), and the [technical documentation for this project](https://revoltchat.github.io/frontend/). -->
 
 Before getting started, you'll want to install:
 
@@ -46,8 +19,8 @@ Then proceed to setup:
 
 ```bash
 # clone the repository
-git clone --recursive https://github.com/stoatchat/for-desktop stoat-for-desktop
-cd stoat-for-desktop
+git clone https://github.com/EDGAR431/starknet-chat-desktop
+cd starknet-chat-desktop
 
 # Install tools from mise
 mise install
@@ -81,17 +54,12 @@ pnpm package
 pnpm run:nix
 # ... as before:
 pnpm run:nix --force-server=http://localhost:5173
-# a better solution would be telling
-# Electron Forge where system Electron is
 ```
 
-### Pulling in Stoat's assets
+### App assets
 
-If you want to pull in Stoat brand assets after pulling, run the following:
+Forks are expected to provide their own branding assets; run `mise assets` after pulling if you need to regenerate them locally.
 
-```bash
-# update the assets
-mise assets
-```
+## License
 
-Currently, this is required to build, any forks are expected to provide their own assets.
+AGPL-3.0 — see [LICENSE](./LICENSE).
